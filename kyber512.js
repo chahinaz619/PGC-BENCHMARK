@@ -1,25 +1,20 @@
 // kyber512.js
+// Correct export for run-all.js
+
 const { runKyber } = require("./benchmark");
 
+// Fake Kyber512 computation (placeholder for real PQC)
 async function fakeKyber512() {
-    // Placeholder computation – replaced by real library later
     return new Promise(resolve => setTimeout(resolve, 1));
 }
 
-async function fakeKyber768() {
-    return new Promise(resolve => setTimeout(resolve, 1));
+async function runKyber512(iterations = 20) {
+    console.log("=== Kyber512 Benchmarks ===");
+    
+    const results = await runKyber("Kyber512", iterations, fakeKyber512);
+
+    return { results };
 }
 
-async function main() {
-    console.log("=== Kyber Benchmarks ===");
-
-    const results512 = await runKyber("Kyber512", 200, fakeKyber512);
-    const results768 = await runKyber("Kyber768", 200, fakeKyber768);
-
-    return {
-        Kyber512: results512,
-        Kyber768: results768
-    };
-}
-
-module.exports = { main };
+// ⭐ Correct export structure (run-all.js expects { runKyber512 })
+module.exports = { runKyber512 };

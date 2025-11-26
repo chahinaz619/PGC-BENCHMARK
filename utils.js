@@ -3,7 +3,20 @@
 
 const { performance } = require('perf_hooks');
 const { writeFileSync } = require('fs');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
+// FIX: add missing function for Dilithium benchmarks
+async function timeAsyncCommand(command) {
+    const start = performance.now();
+    await execAsync(command);
+    const end = performance.now();
+    return { ms: end - start };
+}
+
+// Export it together with existing functions
+module.exports.timeAsyncCommand = timeAsyncCommand;
 // ------------------------------------------------------------
 // High-resolution timing utility
 // ------------------------------------------------------------
@@ -14,7 +27,15 @@ function measureAsync(fn) {
     return { result, timeMs: end - start };
   });
 }
-
+function measureSync(fn) {
+  const start = performance.now();
+  const result = fn();
+  const end = performance.now();
+  return { result, ms: end - start };
+}
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 // ------------------------------------------------------------
 // Memory usage logger
 // ------------------------------------------------------------
@@ -64,8 +85,11 @@ function saveCSV(filename, dataArray) {
 // ------------------------------------------------------------
 module.exports = {
   measureAsync,
+  measureSync,
   getMemoryUsage,
   getCpuUsage,
   jsonToCSV,
   saveCSV,
+  timeAsyncCommand,
+  sleep,
 };

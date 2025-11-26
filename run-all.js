@@ -4,7 +4,7 @@
 // and writes CSV outputs for each.
 
 const { runKyber512 } = require('./kyber512');
-const { runKyber768 } = require('./kyber768');
+//const { runKyber768 } = require('./kyber768');
 const { runDilithium } = require('./dilithium2');
 const { runDilithium3 } = require('./dilithium3');
 const { runChaCha20Poly1305 } = require('./chacha20');
@@ -25,10 +25,10 @@ const { exportCSV } = require('./csv-export');
     // -------------------------------
     // Kyber768
     // -------------------------------
-    console.log("Running Kyber768...");
-    const kyber768 = await runKyber768(20);
-    await exportCSV('results_kyber768.csv', kyber768.results);
-    console.log("Kyber768 done. CSV saved: results_kyber768.csv");
+    //console.log("Running Kyber768...");
+    //const kyber768 = await runKyber768(20);
+    //await exportCSV('results_kyber768.csv', kyber768.results);
+    //console.log("Kyber768 done. CSV saved: results_kyber768.csv");
 
     // -------------------------------
     // Dilithium2
