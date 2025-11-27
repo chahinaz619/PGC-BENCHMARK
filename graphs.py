@@ -1,35 +1,101 @@
+# graphs.py — FINAL SCIENTIFIC VERSION
+# -------------------------------------------------------
+# Generates graphs for:
+#   ✔ execution time (ms)
+#   ✔ CPU cycles
+#   ✔ memory usage (MB)
+#   ✔ estimated energy (J)
+# -------------------------------------------------------
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
 import os
 
-# Folder containing CSVs
-csv_folder = './'
-csv_files = glob.glob(os.path.join(csv_folder, 'results_*.csv'))
+# Location of CSV files
+csv_folder = "./"
+csv_files = glob.glob(csv_folder + "results_*.csv")
+
+# IMPORTANT: Mapping CSV filenames → algorithm name
+def clean_name(path):
+    name = os.path.basename(path)
+    name = name.replace("results_", "").replace(".csv", "")
+    return name
 
 for csv_file in csv_files:
     df = pd.read_csv(csv_file)
+    scheme = clean_name(csv_file)
 
-    # Extract name safely (remove folder path + prefix)
-    scheme_name = os.path.basename(csv_file).replace('results_', '').replace('.csv', '')
+    print(f"\nProcessing: {scheme}")
 
-    # Columns that contain ms timing measurements
-    timing_cols = [col for col in df.columns if 'ms' in col]
+    # Identify types of metrics
+    time_cols = [c for c in df.columns if "ms" in c]
+    cycles_cols = [c for c in df.columns if "cycles" in c]
+    mem_cols = [c for c in df.columns if "mem" in c]
+    energy_cols = [c for c in df.columns if "energy" in c]
 
-    for col in timing_cols:
+    # -------------------------------
+    # GENERATE TIME GRAPHS
+    # -------------------------------
+    for col in time_cols:
         plt.figure(figsize=(10, 6))
-        plt.plot(df.index + 1, df[col], marker='o')
-        plt.title(f'{scheme_name} - {col}')
-        plt.xlabel('Iteration')
-        plt.ylabel('Time (ms)')
+        plt.plot(df["iteration"], df[col], marker="o")
+        plt.title(f"{scheme.upper()} — {col} (Time)")
+        plt.xlabel("Iteration")
+        plt.ylabel("Time (ms)")
         plt.grid(True)
+        output = f"graph_{scheme}_{col}.png"
         plt.tight_layout()
-
-        # Output filename (safe)
-        output_file = f'graph_{scheme_name}_{col}.png'
-        plt.savefig(output_file)
+        plt.savefig(output)
         plt.close()
+        print(f"✔ Saved {output}")
 
-        print(f'✔ Saved graph: {output_file}')
+    # -------------------------------
+    # GENERATE CPU CYCLES GRAPHS
+    # -------------------------------
+    for col in cycles_cols:
+        plt.figure(figsize=(10, 6))
+        plt.plot(df["iteration"], df[col], marker="o", color="red")
+        plt.title(f"{scheme.upper()} — {col} (CPU Cycles)")
+        plt.xlabel("Iteration")
+        plt.ylabel("Cycles")
+        plt.grid(True)
+        output = f"graph_{scheme}_{col}.png"
+        plt.tight_layout()
+        plt.savefig(output)
+        plt.close()
+        print(f"✔ Saved {output}")
 
-print('All graphs generated successfully.')
+    # -------------------------------
+    # GENERATE MEMORY USAGE GRAPHS
+    # -------------------------------
+    for col in mem_cols:
+        plt.figure(figsize=(10, 6))
+        plt.plot(df["iteration"], df[col], marker="o", color="green")
+        plt.title(f"{scheme.upper()} — {col} (Memory)")
+        plt.xlabel("Iteration")
+        plt.ylabel("Memory (MB)")
+        plt.grid(True)
+        output = f"graph_{scheme}_{col}.png"
+        plt.tight_layout()
+        plt.savefig(output)
+        plt.close()
+        print(f"✔ Saved {output}")
+
+    # -------------------------------
+    # GENERATE ENERGY GRAPHS
+    # -------------------------------
+    for col in energy_cols:
+        plt.figure(figsize=(10, 6))
+        plt.plot(df["iteration"], df[col], marker="o", color="purple")
+        plt.title(f"{scheme.upper()} — {col} (Energy)")
+        plt.xlabel("Iteration")
+        plt.ylabel("Energy (J)")
+        plt.grid(True)
+        output = f"graph_{scheme}_{col}.png"
+        plt.tight_layout()
+        plt.savefig(output)
+        plt.close()
+        print(f"✔ Saved {output}")
+
+print("\n🎉 All graphs generated successfully!")
