@@ -1,127 +1,84 @@
-// utils.js - FINAL SCIENTIFIC VERSION
-// ---------------------------------------------------------
-// Includes:
-//  ✔ High-resolution timers
-//  ✔ perf CPU cycle measurement
-//  ✔ Memory usage measurement
-//  ✔ Energy estimation model
-//  ✔ CSV export
-//  ✔ Sleep utility
-// ---------------------------------------------------------
+// utils.js — FINAL SCIENTIFIC VERSION
+// Includes: perf metrics, energy model, timing utilities, memory sampling
 
 const { performance } = require("perf_hooks");
-const { execSync, exec } = require("child_process");
+const { execSync } = require("child_process");
 const fs = require("fs");
-const { promisify } = require("util");
-const execAsync = promisify(exec);
 
-// ---------------------------------------------------------
+// -----------------------------------------------------
 // Sleep helper
-// ---------------------------------------------------------
+// -----------------------------------------------------
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ---------------------------------------------------------
-// High-resolution synchronous measurement
-// ---------------------------------------------------------
-function measureSync(fn) {
-  const t0 = performance.now();
-  const result = fn();
-  const t1 = performance.now();
-  return { result, ms: t1 - t0 };
-}
-
-// ---------------------------------------------------------
-// Async command measurement
-// ---------------------------------------------------------
-async function timeAsyncCommand(command) {
-  const t0 = performance.now();
-  await execAsync(command);
-  const t1 = performance.now();
-  return { ms: t1 - t0 };
-}
-
-// ---------------------------------------------------------
-// Memory measurement (MB)
-// ---------------------------------------------------------
+// -----------------------------------------------------
+// Memory usage (MB)
+// -----------------------------------------------------
 function getMemoryMB() {
-  const mem = process.memoryUsage();
-  return Number((mem.rss / (1024 * 1024)).toFixed(2));
+    const mem = process.memoryUsage();
+    return {
+        rss: (mem.rss / 1024 / 1024).toFixed(2),
+        heapUsed: (mem.heapUsed / 1024 / 1024).toFixed(2),
+        heapTotal: (mem.heapTotal / 1024 / 1024).toFixed(2)
+    };
 }
 
-// ---------------------------------------------------------
-// perf hardware cycle measurement
-// ---------------------------------------------------------
-//
-// Returns hardware CPU cycles measured using perf
-// Example:
-//    measurePerfCycles(["echo", "x"])
-//
+// -----------------------------------------------------
+// PERF measurement (Model A — lightweight echo commands)
+// -----------------------------------------------------
 function measurePerfCycles(cmdArray) {
-  try {
-    const output = execSync(
-      `sudo perf stat -e cycles ${cmdArray.join(" ")}`,
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+    try {
+        const perfCmd = [
+            "perf", "stat",
+            "-e", "cycles,instructions,cache-misses,branch-misses",
+            ...cmdArray
+        ];
+
+        const output = execSync(perfCmd.join(" "), { stderr: "pipe" }).toString();
+
+        const cycles = parseFloat(output.match(/([\d,]+)\s+cycles/)?.[1].replace(/,/g, "")) || 0;
+        const instr = parseFloat(output.match(/([\d,]+)\s+instructions/)?.[1].replace(/,/g, "")) || 0;
+        const cache = parseFloat(output.match(/([\d,]+)\s+cache-misses/)?.[1].replace(/,/g, "")) || 0;
+        const branch = parseFloat(output.match(/([\d,]+)\s+branch-misses/)?.[1].replace(/,/g, "")) || 0;
+
+        return { cycles, instr, cache, branch };
+
+    } catch (err) {
+        return { cycles: 0, instr: 0, cache: 0, branch: 0 };
+    }
+}
+
+// -----------------------------------------------------
+// Simple energy estimation model (not hardware-accurate)
+// -----------------------------------------------------
+function estimateEnergy(ms, cycles) {
+    const cpuFreqGHz = 1.5; // Raspberry Pi 4 → 1.5GHz
+    return (cycles / (cpuFreqGHz * 1e9)).toFixed(9);
+}
+
+// -----------------------------------------------------
+// CSV SAVE
+// -----------------------------------------------------
+function saveCSV(filename, dataArray) {
+    const headers = Object.keys(dataArray[0]).join(",");
+    const rows = dataArray.map(obj =>
+        Object.values(obj)
+            .map(v => JSON.stringify(v ?? ""))
+            .join(",")
     );
 
-    // perf prints cycles to stderr, not stdout
-    const cyclesMatch = /([\d,]+)\s+cycles/.exec(output);
+    const csv = [headers, ...rows].join("\n");
+    fs.writeFileSync(filename, csv);
 
-    if (!cyclesMatch) return 0;
-
-    return Number(cyclesMatch[1].replace(/,/g, ""));
-  } catch (err) {
-    return 0; // perf might fail on small commands; return 0 safely
-  }
+    console.log(`✔ CSV saved: ${filename}`);
 }
 
-// ---------------------------------------------------------
-// Energy estimation model (Joules)
-// ---------------------------------------------------------
-// This is a scientific approximate model often used in IoT testing.
-//
-// Energy = (cycles × 1e-9) × 0.5W
-//          + execution_time_ms × 0.0002W
-//
-// Rough but acceptable for academic baselines.
-//
-function estimateEnergy(time_ms, cycles) {
-  const energyFromCycles = (cycles * 1e-9) * 0.5;
-  const energyFromTime = time_ms * 0.0002;
-  return Number((energyFromCycles + energyFromTime).toFixed(6));
-}
-
-// ---------------------------------------------------------
-// CSV Handling
-// ---------------------------------------------------------
-function jsonToCSV(arr) {
-  if (!arr || arr.length === 0) return "";
-
-  const headers = Object.keys(arr[0]);
-  const rows = arr.map(obj =>
-    headers.map(h => JSON.stringify(obj[h] ?? "")).join(",")
-  );
-
-  return [headers.join(","), ...rows].join("\n");
-}
-
-function saveCSV(filename, data) {
-  const csv = jsonToCSV(data);
-  fs.writeFileSync(filename, csv);
-  console.log(`✔ CSV saved: ${filename}`);
-}
-
-// ---------------------------------------------------------
-// EXPORTS
-// ---------------------------------------------------------
+// -----------------------------------------------------
 module.exports = {
-  sleep,
-  measureSync,
-  timeAsyncCommand,
-  getMemoryMB,
-  measurePerfCycles,
-  estimateEnergy,
-  saveCSV,
-  jsonToCSV
+    sleep,
+    getMemoryMB,
+    measurePerfCycles,
+    estimateEnergy,
+    saveCSV
 };

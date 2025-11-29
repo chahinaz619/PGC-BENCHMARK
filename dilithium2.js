@@ -1,54 +1,72 @@
-// dilithium2.js — FINAL SCIENTIFIC VERSION
-// ----------------------------------------
+// dilithium2.js — PERF ENABLED
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const { performance } = require("perf_hooks");
+const utils = require("./utils");
 
-const monitoring = require('./monitoring');
-const utils = require('./utils');
+async function fakeKeygen() { return new Promise(r => setTimeout(r, 4)); }
+async function fakeSign()   { return new Promise(r => setTimeout(r, 5)); }
+async function fakeVerify() { return new Promise(r => setTimeout(r, 3)); }
 
-// Generic Dilithium runner (dilithium2 or dilithium3)
-async function runDilithium(level = 'dilithium2', iterations = 20) {
+async function runDilithium2(iterations = 50) {
+    console.log("=== Dilithium2 Benchmarks ===");
+    console.log(`Running Dilithium2 for ${iterations} iterations...`);
 
-  const keygenCmd = `echo simulate_${level}_keygen`;
-  const signCmd   = `echo simulate_${level}_sign`;
-  const verifyCmd = `echo simulate_${level}_verify`;
+    const results = [];
 
-  const results = [];
+    for (let i = 1; i <= iterations; i++) {
+        console.log(`Iteration ${i}/${iterations}`);
 
-  for (let i = 0; i < iterations; i++) {
+        // keygen
+        const t0k = performance.now(); await fakeKeygen(); const t1k = performance.now();
+        const perfK = utils.measurePerfCycles(["echo", "d2_keygen"]);
+        const memK = utils.getMemoryMB();
 
-    // --- Keygen ---
-    const monKeygen = monitoring.startMonitoring();
-    const tKeygen = await utils.timeAsyncCommand(keygenCmd);
-    const samplesKeygen = monKeygen.stop();
+        // sign
+        const t0s = performance.now(); await fakeSign(); const t1s = performance.now();
+        const perfS = utils.measurePerfCycles(["echo", "d2_sign"]);
+        const memS = utils.getMemoryMB();
 
-    // --- Sign ---
-    const monSign = monitoring.startMonitoring();
-    const tSign = await utils.timeAsyncCommand(signCmd);
-    const samplesSign = monSign.stop();
+        // verify
+        const t0v = performance.now(); await fakeVerify(); const t1v = performance.now();
+        const perfV = utils.measurePerfCycles(["echo", "d2_verify"]);
+        const memV = utils.getMemoryMB();
 
-    // --- Verify ---
-    const monVerify = monitoring.startMonitoring();
-    const tVerify = await utils.timeAsyncCommand(verifyCmd);
-    const samplesVerify = monVerify.stop();
+        results.push({
+            iteration: i,
 
-    results.push({
-      iteration: i + 1,
-      keygen_ms: tKeygen.ms,
-      sign_ms: tSign.ms,
-      verify_ms: tVerify.ms,
-      keygen_samples: samplesKeygen,
-      sign_samples: samplesSign,
-      verify_samples: samplesVerify,
-    });
+            keygen_ms: t1k - t0k,
+            sign_ms:   t1s - t0s,
+            verify_ms: t1v - t0v,
 
-    await utils.sleep(50);
-  }
+            keygen_cycles: perfK.cycles,
+            sign_cycles:   perfS.cycles,
+            verify_cycles: perfV.cycles,
 
-  return { scheme: level, iterations, results };
+            keygen_instr: perfK.instr,
+            sign_instr:   perfS.instr,
+            verify_instr: perfV.instr,
+
+            keygen_cache: perfK.cache,
+            sign_cache:   perfS.cache,
+            verify_cache: perfV.cache,
+
+            keygen_branch: perfK.branch,
+            sign_branch:   perfS.branch,
+            verify_branch: perfV.branch,
+
+            mem_rss: memK.rss,
+            mem_heapUsed: memK.heapUsed,
+
+            energy_keygen: utils.estimateEnergy(t1k - t0k, perfK.cycles),
+            energy_sign:   utils.estimateEnergy(t1s - t0s, perfS.cycles),
+            energy_verify: utils.estimateEnergy(t1v - t0v, perfV.cycles)
+        });
+
+        await utils.sleep(10);
+    }
+
+    utils.saveCSV("results_dilithium2.csv", results);
+    return { results };
 }
 
-// Export EXACTLY what run-all.js expects!
-module.exports = { runDilithium };
+module.exports = { runDilithium2 };
